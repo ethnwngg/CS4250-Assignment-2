@@ -1,96 +1,140 @@
+#-------------------------------------------------------------------------
+# AUTHOR: Ethan Wong
+# FILENAME: db_connection_mongo.py
+# SPECIFICATION: Python program using PyMongo
+# FOR: CS 4250- Assignment #2
+# TIME SPENT: 4 hours
+#-----------------------------------------------------------*/
+
+#IMPORTANT NOTE: DO NOT USE ANY ADVANCED PYTHON LIBRARY TO COMPLETE THIS CODE SUCH AS numpy OR pandas. You have to work here only with
+# standard arrays
+
+#importing some Python libraries
+# --> add your Python code here
 from pymongo import MongoClient
 import datetime
+import string
 
 def connectDataBase():
 
-    # Creating a database connection object using psycopg2
-
+    # Create a database connection object using pymongo
+    # --> add your Python code here
     DB_NAME = "CPP"
     DB_HOST = "localhost"
     DB_PORT = 27017
 
     try:
-
         client = MongoClient(host=DB_HOST, port=DB_PORT)
         db = client[DB_NAME]
 
         return db
 
     except:
-        print("Database not connected successfully")
+        print("Invalid")
 
-def createUser(col, id, name, email):
+def createDocument(col, docId, docText, docTitle, docDate, docCat):
 
-    # Value to be inserted
-    user = {"_id": id,
-            "name": name,
-            "email": email,
-            }
+    # create a dictionary (document) to count how many times each term appears in the document.
+    # Use space " " as the delimiter character for terms and remember to lowercase them.
+    # --> add your Python code here
+    terms = docText.lower().split(" ")
 
+    term_count = {}
+    for term in terms:
+        if term in term_count:
+            term_count[term] += 1
+        else:
+            term_count[term] = 1
+
+    # create a list of dictionaries (documents) with each entry including a term, its occurrences, and its num_chars. Ex: [{term, count, num_char}]
+    # --> add your Python code here
+    term_list = [{"term": term, 
+                  "count":count, 
+                  "num_chars": len(term)} for term, count in term_count.items()]
+
+    #Producing a final document as a dictionary including all the required fields
+    # --> add your Python code here
+    docDate = datetime.datetime.strptime(docDate,"%Y-%m-%d")
+
+    document = {"_id": docId,
+                "text": docText,
+                "title": docTitle,
+                "date": docDate,
+                "category": docCat,
+                "terms": term_list,
+                "num_chars": len(docText),
+                }
+    
     # Insert the document
-    col.insert_one(user)
+    # --> add your Python code here
+    col.insert_one(document)
 
-def updateUser(col, id, name, email):
-
-    # User fields to be updated
-    user = {"$set": {"name": name, "email": email} }
-
-    # Updating the user
-    col.update_one({"_id": id}, user)
-
-def deleteUser(col, id):
+def deleteDocument(col, docId):
 
     # Delete the document from the database
-    col.delete_one({"_id": id})
+    # --> add your Python code here
+    col.delete_one({"_id": docId})
 
-def getUser(col, nameUser):
+def updateDocument(col, docId, docText, docTitle, docDate, docCat):
 
-    user = col.find_one({"name":nameUser})
+    # Delete the document
+    # --> add your Python code here
+    col.delete_one({"_id": docId})
 
-    if user:
-        return str(user['_id']) + " | " + user['name'] + " | " + user['email']
-    else:
-        return []
+    # Create the document with the same id
+    # --> add your Python code here
+    terms = docText.lower().split(" ")
 
-def createComment(col, id, id_user, text, dateTime):
+    term_count = {}
+    for term in terms:
+        if term in term_count:
+            term_count[term] += 1
+        else:
+            term_count[term] = 1
 
-    # Comments to be included
-    comments = {"$push": {"comments": {"id": id,
-                                       "message": text,
-                                       "datetime": datetime.datetime.strptime(dateTime, "%m/%d/%Y %H:%M:%S")} }}
+    term_list = [{"term": term, 
+                  "count":count, 
+                  "num_chars": len(term)} for term, count in term_count.items()]
+    
+    docDate = datetime.datetime.strptime(docDate,"%Y-%m-%d")
 
-    # Updating the user document
-    col.update_one({"_id": id_user}, comments)
+    col.insert_one({"_id": docId,
+                "text": docText,
+                "title": docTitle,
+                "date": docDate,
+                "category": docCat,
+                "terms": term_list,
+                "num_chars": len(docText),
+                })
 
-def updateComment(col, id_user, id, text, dateTime):
 
-    # User fields to be updated
-    comment = {"$set": {"comments.$.message": text} }
+def getIndex(col):
 
-    # Updating the user
-    col.update_one({"_id": id_user, "comments.id": id}, comment)
+    # Query the database to return the documents where each term occurs with their corresponding count. Output example:
+    # {'baseball':'Exercise:1','summer':'Exercise:1,California:1,Arizona:1','months':'Exercise:1,Discovery:3', ...}
+    # We are simulating an inverted index here in memory.
+    # --> add your Python code here
+    documents = col.find()
+    inverted_index = {}
 
-def deleteComment(col, id_user, id):
+    for doc in documents:
+        title = doc["title"]
+        terms = doc["terms"]
 
-    # Comments to be delete
-    comments = {"$pull": {"comments": {"id": id} }}
+        for term_data in terms:
+            term = term_data["term"]
+            count = term_data["count"]
 
-    # Updating the user document
-    col.update_one({"_id": id_user}, comments)
+            final_term = term.translate(str.maketrans('', '', string.punctuation)).lower()
 
-def getChat(col):
+            if final_term not in inverted_index:
+                inverted_index[final_term] = {}
 
-    # creating a document for each message
-    pipeline = [
-                 {"$unwind": { "path": "$comments" }},
-                 {"$sort": {"comments.datetime": 1}}
-               ]
+            inverted_index[final_term][title] = count
 
-    messages = col.aggregate(pipeline)
-
-    chat = ""
-
-    for msn in messages:
-        chat += msn['name'] + " | " + msn['comments']['message'] + " | " + str(msn['comments']['datetime']) + "\n"
-
-    return chat
+    final_index = {}
+    for term, occurences in inverted_index.items():
+        doc_counts = [f"{title}:{count}" for title, count in occurences.items()]
+        final_index[term] = ",".join(doc_counts)
+        
+    return final_index
