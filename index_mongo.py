@@ -1,13 +1,13 @@
 #-------------------------------------------------------------------------
-# AUTHOR: your name
-# FILENAME: title of the source file
-# SPECIFICATION: description of the program
+# AUTHOR: Ethan Wong
+# FILENAME: index_mongo.py
+# SPECIFICATION: Driver program for python program (db_connection_mongo.py) 
 # FOR: CS 4250- Assignment #2
-# TIME SPENT: how long it took you to complete the assignment
+# TIME SPENT: 4 hours
 #-----------------------------------------------------------*/
 
 from pymongo import MongoClient  # import mongo client to connect
-from db_connection_mongo_solution import *
+from db_connection_mongo import *
 
 if __name__ == '__main__':
 
